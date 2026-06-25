@@ -5,7 +5,7 @@ Premium web application for Bloomy AI with glassmorphism UI and smooth animation
 ## Features
 
 - **Premium UI**: Glassmorphism design with smooth animations
-- **4-Model System**: Mini, Standard, Pro, and Code tiers (based on leaked sources)
+- **4-Model System**: Mini, Standard, Pro, and Code tiers
 - **Chat Interface**: Claude-like chat experience with conversation management
 - **Code Editor**: VS Code-like IDE with build configurations
 - **Downloads**: Platform downloads for Windows, macOS, Linux, iOS, Android
