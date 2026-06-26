@@ -20,10 +20,6 @@
       "preload.js",
       "loading.html",
       "logo.png",
-      "../web/.next/**/*",
-      "../web/public/**/*",
-      "../web/node_modules/**/*",
-      "../web/package.json"
     ],
     "extraResources": [
       {
@@ -33,8 +29,7 @@
           ".next/**/*",
           "public/**/*",
           "node_modules/**/*",
-          "package.json",
-          "next.config.*"
+          "package.json"
         ]
       }
     ],

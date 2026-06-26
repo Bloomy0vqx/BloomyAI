@@ -25,7 +25,10 @@ function waitForServer(url, maxTries = 40, interval = 500) {
 }
 
 function startNextServer() {
-  const webDir = path.join(__dirname, '..', 'web');
+  const isDev = !app.isPackaged;
+  const webDir = isDev 
+    ? path.join(__dirname, '..', 'web')
+    : path.join(process.resourcesPath, 'web');
 
   // Use the locally installed next binary
   const nextBin = path.join(webDir, 'node_modules', '.bin', 'next');
