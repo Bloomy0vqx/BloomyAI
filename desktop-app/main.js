@@ -11,10 +11,12 @@ function waitForServer(url, maxTries = 40, interval = 500) {
   return new Promise((resolve, reject) => {
     let tries = 0;
     const check = () => {
-      http.get(url, res => {
+      const req = http.get(url, { timeout: 1000 }, res => {
         if (res.statusCode < 500) resolve();
         else retry();
-      }).on('error', retry);
+      });
+      req.on('error', retry);
+      req.on('timeout', () => { req.destroy(); retry(); });
     };
     const retry = () => {
       if (++tries >= maxTries) return reject(new Error('Next.js server did not start'));
