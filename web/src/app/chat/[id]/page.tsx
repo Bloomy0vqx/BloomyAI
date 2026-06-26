@@ -63,7 +63,8 @@ export default function ChatDetailPage() {
   const conversationId = params.id as string;
   const router = useRouter();
   const { data: session, status } = useSession();
-  
+  const [localUser, setLocalUser] = useState<{ name: string; email: string } | null>(null);
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -86,6 +87,10 @@ export default function ChatDetailPage() {
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [thinkingPhase, setThinkingPhase] = useState(0);
+
+  // Helper: is any kind of user logged in (next-auth session OR local token)
+  const isLoggedIn = !!session || !!localUser;
+  const displayUser = session?.user || localUser;
 
   const thinkingPhrases: Record<string, string[]> = {
     flash: ["Thinking...", "Almost there...", "Generating response..."],
@@ -162,6 +167,13 @@ export default function ChatDetailPage() {
       if (navigator.userAgent.toLowerCase().includes('electron')) {
         setIsDesktopApp(true);
       }
+
+      // Load local user token (from email/password login)
+      const tokenRaw = localStorage.getItem('user-token');
+      if (tokenRaw) {
+        try { setLocalUser(JSON.parse(tokenRaw)); } catch {}
+      }
+
       const savedConversations = localStorage.getItem('bloomy-conversations');
       if (savedConversations) {
         try {
@@ -225,20 +237,20 @@ export default function ChatDetailPage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [contextMenuOpen]);
 
-  // Check authentication on load
+  // Check authentication on load — only redirect if neither next-auth session nor local token
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (status === "loading") return; // wait for next-auth to resolve
+    const tokenRaw = typeof window !== 'undefined' ? localStorage.getItem('user-token') : null;
+    if (status === "unauthenticated" && !tokenRaw) {
       router.push('/login');
-    } else if (status === "authenticated") {
-      console.log("User is authenticated:", session);
     }
-  }, [status, session, router]);
+  }, [status, router]);
 
   const handleSend = async () => {
     if (!input.trim() && attachments.length === 0) return;
 
-    // Check if user is logged in
-    if (!session) {
+    // Check if user is logged in (either via OAuth session or local token)
+    if (!isLoggedIn) {
       router.push('/login');
       return;
     }
@@ -425,10 +437,16 @@ export default function ChatDetailPage() {
         )}
         <div className={`flex-1 ${isUser ? 'text-right' : ''}`}>
           <div className={`inline-block max-w-3xl ${isUser ? 'bg-dark-card border border-dark-border' : 'bg-transparent border border-dark-border'} rounded-lg p-4 text-left`}>
-            {isUser && session?.user?.image && (
+            {isUser && displayUser && (
               <div className="flex items-center gap-2 mb-2">
-                <img src={session.user.image} alt="User" className="w-6 h-6 rounded-full" />
-                <span className="text-xs text-dark-text-secondary">{session.user.name}</span>
+                {displayUser.image ? (
+                  <img src={displayUser.image} alt="User" className="w-6 h-6 rounded-full" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-bloomy-pink to-bloomy-purple flex items-center justify-center text-white font-bold text-[10px]">
+                    {displayUser.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                  </div>
+                )}
+                <span className="text-xs text-dark-text-secondary">{displayUser.name}</span>
               </div>
             )}
             {parts.map((part, i) => {
@@ -712,24 +730,25 @@ export default function ChatDetailPage() {
                 className="w-full flex items-center justify-between hover:bg-dark-surface transition-colors cursor-pointer rounded-t-xl"
               >
                 <div className="flex items-center gap-3">
-                  {session?.user?.image ? (
-                    <img src={session.user.image} alt="User" className="w-8 h-8 rounded-full" />
+                  {displayUser?.image ? (
+                    <img src={displayUser.image} alt="User" className="w-8 h-8 rounded-full" />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-bloomy-pink to-bloomy-purple flex items-center justify-center text-white font-bold text-xs">
-                      {session?.user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'AN'}
+                      {displayUser?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
                     </div>
                   )}
                   <div className="flex flex-col">
-                    <span className="text-sm text-dark-text font-medium">{session?.user?.name || "Account Name"}</span>
+                    <span className="text-sm text-dark-text font-medium">{displayUser?.name || "Account Name"}</span>
                   </div>
                 </div>
               </button>
               
-              {accountDropdownOpen && session && (
+              {accountDropdownOpen && isLoggedIn && (
                 <div className="absolute bottom-full left-0 right-0 mb-1 bg-dark-card border border-dark-border rounded-md shadow-xl z-50">
                   <button
                     onClick={() => {
                       setAccountDropdownOpen(false);
+                      localStorage.removeItem('user-token');
                       signOut({ callbackUrl: '/login' });
                     }}
                     className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-dark-surface transition-colors"
