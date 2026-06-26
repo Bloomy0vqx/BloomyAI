@@ -698,10 +698,6 @@ export default function ChatDetailPage() {
             </div>
 
             <div className="p-3 mt-auto border-t border-dark-border relative">
-              <Link href="/downloads" className="w-full mb-3 flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-bloomy-blue to-bloomy-purple rounded-lg text-white text-sm font-medium hover:opacity-90 transition-opacity">
-                <Download className="w-4 h-4" />
-                Get Desktop App
-              </Link>
               <button
                 onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
                 className="w-full flex items-center justify-between hover:bg-dark-surface transition-colors cursor-pointer rounded-t-xl"

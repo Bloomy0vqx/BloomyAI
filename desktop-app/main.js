@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 
 let mainWindow;
@@ -9,6 +9,9 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    frame: false,          // borderless
+    titleBarStyle: 'hidden',
+    backgroundColor: '#13151C',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -17,37 +20,27 @@ function createWindow() {
     icon: path.join(__dirname, 'logo.png')
   });
 
+  // Remove native menu bar entirely
+  Menu.setApplicationMenu(null);
+
   // Load the chat interface from Vercel
   mainWindow.loadURL('https://bloomyaiweb.vercel.app/chat-simple');
-
-  // Open DevTools in development (optional)
-  // mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
-// Create menu
-function createMenu() {
-  const template = [
-    {
-      label: 'Bloomy AI',
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        { role: 'quit' }
-      ]
-    }
-  ];
-
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
-}
+// IPC handlers for custom window controls
+ipcMain.on('window-minimize', () => mainWindow?.minimize());
+ipcMain.on('window-maximize', () => {
+  if (mainWindow?.isMaximized()) mainWindow.unmaximize();
+  else mainWindow?.maximize();
+});
+ipcMain.on('window-close', () => mainWindow?.close());
 
 app.whenReady().then(() => {
   createWindow();
-  createMenu();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
