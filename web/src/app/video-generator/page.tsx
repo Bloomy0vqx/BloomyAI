@@ -21,9 +21,6 @@ export default function VideoGenerator() {
       });
       const data = await response.json();
       if (data.success) {
-        if (data.note) {
-          alert(data.note);
-        }
         setGeneratedVideo(data.video);
         setDescription(data.description);
       } else {
@@ -62,8 +59,8 @@ export default function VideoGenerator() {
         <div className="flex-1 p-8 flex items-center justify-center">
           {generatedVideo ? (
             <div className="relative">
-              <div className="max-w-3xl rounded-lg shadow-2xl bg-dark-card aspect-video flex items-center justify-center">
-                <Video className="w-16 h-16 text-dark-text-secondary" />
+              <div className="max-w-3xl rounded-lg shadow-2xl bg-dark-card overflow-hidden flex items-center justify-center">
+                <video src={generatedVideo} autoPlay loop muted playsInline controls className="w-full h-auto max-h-[60vh] object-contain" />
               </div>
               <button className="absolute bottom-4 right-4 bg-dark-card border border-dark-border px-4 py-2 rounded-md flex items-center gap-2 hover:bg-dark-surface transition-colors">
                 <Download className="w-4 h-4" />
