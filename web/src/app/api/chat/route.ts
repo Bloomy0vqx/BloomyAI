@@ -21,10 +21,10 @@ const agentPrompts: Record<string, string> = {
 };
 
 const openrouterModels: Record<string, string> = {
-  flash: "deepseek/deepseek-r1-0528:free",
-  core: "nousresearch/hermes-3-llama-3.1-405b:free",
-  pro: "deepseek/deepseek-r1-0528:free",
-  code: "nousresearch/hermes-3-llama-3.1-405b:free",
+  flash: "google/gemini-2.5-flash",
+  core: "openai/gpt-5.4-mini",
+  pro: "openai/gpt-oss-20b:free",
+  code: "z-ai/glm-5.2",
 };
 
 // Lower token ceilings per model for snappier first-token latency
