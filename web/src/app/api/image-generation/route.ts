@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { HfInference } from '@huggingface/inference';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY || 'dummy_key_for_build',
-  baseURL: 'https://openrouter.ai/api/v1',
-  defaultHeaders: {
-    'HTTP-Referer': 'https://bloomy.ai',
-    'X-Title': 'Bloomy AI',
-  },
-});
+const hf = process.env.HUGGINGFACE_API_KEY ? new HfInference(process.env.HUGGINGFACE_API_KEY) : null;
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,20 +11,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
-
-    const imgResponse = await fetch(imageUrl);
-    if (!imgResponse.ok) {
-      throw new Error(`Failed to generate image: ${imgResponse.statusText}`);
+    if (!hf) {
+      return NextResponse.json({ error: 'HuggingFace API key is not configured' }, { status: 500 });
     }
-    const arrayBuffer = await imgResponse.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Image = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+
+    // Use HuggingFace for image generation
+    const result = await hf.textToImage({
+      model: 'stabilityai/stable-diffusion-3-medium-diffusers',
+      inputs: prompt,
+    });
+
+    // Convert blob to base64
+    const arrayBuffer = await result.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    const dataUrl = `data:image/png;base64,${base64}`;
 
     return NextResponse.json({ 
       success: true, 
-      image: base64Image,
-      description: prompt,
+      image: dataUrl 
     });
 
   } catch (error: any) {

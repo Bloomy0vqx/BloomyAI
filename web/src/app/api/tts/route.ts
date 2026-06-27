@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { HfInference } from '@huggingface/inference';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY || 'dummy_key_for_build',
-  baseURL: 'https://openrouter.ai/api/v1',
-  defaultHeaders: {
-    'HTTP-Referer': 'https://bloomy.ai',
-    'X-Title': 'Bloomy AI',
-  },
-});
+const hf = process.env.HUGGINGFACE_API_KEY ? new HfInference(process.env.HUGGINGFACE_API_KEY) : null;
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,19 +11,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
     }
 
-    if (!process.env.OPENROUTER_API_KEY) {
-      return NextResponse.json({ error: 'OpenRouter API key is not configured' }, { status: 500 });
+    if (!hf) {
+      return NextResponse.json({ error: 'HuggingFace API key is not configured' }, { status: 500 });
     }
 
-    // Use OpenRouter for text generation (TTS requires dedicated TTS API)
-    // For now, we'll return the text as-is since actual TTS requires a dedicated service
-    // In production, you would use a TTS service like ElevenLabs, OpenAI TTS, or similar
-    
+    // Use HuggingFace for TTS
+    const result = await hf.textToSpeech({
+      model: 'microsoft/speecht5_tts',
+      inputs: text,
+    });
+
+    // Convert blob to base64
+    const arrayBuffer = await result.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    const dataUrl = `data:audio/wav;base64,${base64}`;
+
     return NextResponse.json({ 
       success: true, 
-      audio: null,
-      text: text,
-      note: 'Text-to-speech requires a dedicated TTS API. This is a placeholder response.'
+      audio: dataUrl 
     });
 
   } catch (error: any) {

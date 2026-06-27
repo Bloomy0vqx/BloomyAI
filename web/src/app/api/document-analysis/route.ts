@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { HfInference } from '@huggingface/inference';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY || 'dummy_key_for_build',
-  defaultHeaders: {
-    'HTTP-Referer': 'https://bloomy.ai',
-    'X-Title': 'Bloomy AI',
-  },
-});
+const hf = process.env.HUGGINGFACE_API_KEY ? new HfInference(process.env.HUGGINGFACE_API_KEY) : null;
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,23 +11,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
     }
 
-    // Use OpenRouter for document analysis
-    const response = await openai.chat.completions.create({
-      model: 'mistralai/mistral-7b-instruct:free',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a document analysis assistant. Analyze the provided text and provide a summary, key insights, entities, and sentiment analysis. Return the response in JSON format with the following structure: { "summary": "...", "keyInsights": ["...", "..."], "entities": [{"text": "...", "type": "..."}], "sentiment": {"score": 0.0-1.0, "label": "POSITIVE/NEGATIVE/NEUTRAL"} }'
-        },
-        {
-          role: 'user',
-          content: `Analyze this document:\n\n${text}`
-        }
-      ],
-      temperature: 0.3,
+    if (!hf) {
+      return NextResponse.json({ error: 'HuggingFace API key is not configured' }, { status: 500 });
+    }
+
+    // Use HuggingFace for document analysis
+    const response = await hf.textGeneration({
+      model: 'HauhauCS/Gemma4-31B-QAT-Uncensored-HauhauCS-Balanced-MTP',
+      inputs: `Analyze this document and provide a summary, key insights, entities, and sentiment analysis. Return in JSON format: { "summary": "...", "keyInsights": ["...", "..."], "entities": [{"text": "...", "type": "..."}], "sentiment": {"score": 0.0-1.0, "label": "POSITIVE/NEGATIVE/NEUTRAL"} }\n\nDocument:\n${text}`,
+      parameters: {
+        max_new_tokens: 1024,
+        temperature: 0.3,
+        return_full_text: false,
+      },
     });
 
-    const analysisText = response.choices[0]?.message?.content || '{}';
+    const analysisText = response.generated_text || '{}';
     let analysis;
     
     try {
