@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Download, CheckCircle, Clock, ExternalLink, Loader2, AlertCircle } from "lucide-react";
+import { Download, CheckCircle, Clock, Loader2, AlertCircle } from "lucide-react";
 
 type DownloadPlatform = {
   id: string;
@@ -12,15 +12,14 @@ type DownloadPlatform = {
   size: string;
   hint: string;
   kind: "installer" | "portable";
+  available?: boolean;
 };
 
 type DownloadsResponse = {
   available: boolean;
   version: string;
-  tag?: string;
-  releasePage: string;
-  actionsPage?: string;
   message?: string;
+  pending?: string[];
   platforms: DownloadPlatform[];
 };
 
@@ -47,7 +46,6 @@ export default function DownloadsPage() {
         setData({
           available: false,
           version: "1.0.0",
-          releasePage: "https://github.com/BloomyAI/BloomyAI/releases",
           platforms: [],
           message: "Failed to load download info.",
         })
@@ -63,10 +61,6 @@ export default function DownloadsPage() {
       data.platforms[0]
     );
   }, [data, userOs]);
-
-  const openDownload = (url: string) => {
-    window.location.href = url;
-  };
 
   const comingSoon = [
     { name: "iOS", icon: "fa-brands fa-app-store-ios" },
@@ -94,19 +88,16 @@ export default function DownloadsPage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
           <h1 className="text-4xl font-bold mb-4 gradient-text">Download Bloomy AI Desktop</h1>
           <p className="text-white/70 mb-2">
-            Direct installers — no zip files. Works with our private GitHub repo via secure download links.
+            Direct installers from our site — Windows .exe, macOS .dmg, Linux AppImage or tar.gz.
           </p>
           {data?.version && (
-            <p className="text-white/50 text-sm mb-8">
-              Latest build: v{data.version}
-              {data.tag ? ` (${data.tag})` : ""}
-            </p>
+            <p className="text-white/50 text-sm mb-8">Version {data.version}</p>
           )}
 
           {loading && (
             <div className="flex items-center gap-2 text-white/60 mb-8">
               <Loader2 className="w-5 h-5 animate-spin" />
-              Loading latest installers…
+              Loading downloads…
             </div>
           )}
 
@@ -115,27 +106,14 @@ export default function DownloadsPage() {
               <div className="flex gap-3">
                 <AlertCircle className="w-6 h-6 text-yellow-400 shrink-0" />
                 <div>
-                  <p className="text-white/90 mb-2">{data?.message}</p>
-                  <div className="flex flex-wrap gap-3 text-sm">
-                    <a
-                      href={data?.releasePage}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-bloomy-purple hover:underline inline-flex items-center gap-1"
-                    >
-                      GitHub Releases <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                    {data?.actionsPage && (
-                      <a
-                        href={data.actionsPage}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-bloomy-purple hover:underline inline-flex items-center gap-1"
-                      >
-                        Run build workflow <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
+                  <p className="text-white/90 mb-2">
+                    {data?.message || "Installers are not available yet. Check back soon."}
+                  </p>
+                  {data?.pending && data.pending.length > 0 && (
+                    <p className="text-white/50 text-xs font-mono">
+                      Expected files: {data.pending.join(", ")}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -147,16 +125,20 @@ export default function DownloadsPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold">{recommended.name}</h2>
-                  <p className="text-white/60 text-sm">{recommended.fileName}{recommended.size ? ` · ${recommended.size}` : ""}</p>
+                  <p className="text-white/60 text-sm">
+                    {recommended.fileName}
+                    {recommended.size ? ` · ${recommended.size}` : ""}
+                  </p>
                   <p className="text-white/40 text-xs font-mono mt-1">{recommended.hint}</p>
                 </div>
-                <button
-                  onClick={() => openDownload(recommended.url)}
+                <a
+                  href={recommended.url}
+                  download={recommended.fileName}
                   className="btn-primary px-8 py-3 flex items-center justify-center gap-2 shrink-0"
                 >
                   <Download className="w-4 h-4" />
                   Download installer
-                </button>
+                </a>
               </div>
             </div>
           )}
@@ -172,11 +154,15 @@ export default function DownloadsPage() {
               >
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-4xl text-bloomy-purple">
-                    <i className={
-                      platform.id.includes("windows") ? "fa-brands fa-windows" :
-                      platform.id.includes("mac") ? "fa-brands fa-apple" :
-                      "fa-brands fa-linux"
-                    } />
+                    <i
+                      className={
+                        platform.id.includes("windows")
+                          ? "fa-brands fa-windows"
+                          : platform.id.includes("mac")
+                            ? "fa-brands fa-apple"
+                            : "fa-brands fa-linux"
+                      }
+                    />
                   </div>
                   <div className="flex items-center gap-2 text-sm text-green-400">
                     <CheckCircle className="w-4 h-4" />
@@ -184,16 +170,19 @@ export default function DownloadsPage() {
                   </div>
                 </div>
                 <h3 className="text-xl font-bold mb-1">{platform.name}</h3>
-                <p className="text-white/60 text-sm mb-1 truncate" title={platform.fileName}>{platform.fileName}</p>
+                <p className="text-white/60 text-sm mb-1 truncate" title={platform.fileName}>
+                  {platform.fileName}
+                </p>
                 {platform.size && <p className="text-white/40 text-xs mb-2">{platform.size}</p>}
                 <p className="text-white/40 text-xs mb-4 font-mono leading-relaxed">{platform.hint}</p>
-                <button
-                  onClick={() => openDownload(platform.url)}
+                <a
+                  href={platform.url}
+                  download={platform.fileName}
                   className="w-full py-3 rounded-lg font-medium btn-primary hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
                 >
                   <Download className="w-4 h-4" />
                   {platform.kind === "installer" ? "Download installer" : "Download"}
-                </button>
+                </a>
               </motion.div>
             ))}
 
@@ -206,7 +195,9 @@ export default function DownloadsPage() {
                 className="glass-card p-6 opacity-80"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <div className="text-4xl text-bloomy-purple"><i className={platform.icon} /></div>
+                  <div className="text-4xl text-bloomy-purple">
+                    <i className={platform.icon} />
+                  </div>
                   <div className="flex items-center gap-2 text-sm text-yellow-400">
                     <Clock className="w-4 h-4" />
                     Coming Soon
@@ -219,17 +210,6 @@ export default function DownloadsPage() {
               </motion.div>
             ))}
           </div>
-
-          {data?.releasePage && (
-            <a
-              href={data.releasePage}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-bloomy-purple hover:underline mt-10 text-sm"
-            >
-              All releases on GitHub <ExternalLink className="w-4 h-4" />
-            </a>
-          )}
         </motion.div>
       </div>
     </div>

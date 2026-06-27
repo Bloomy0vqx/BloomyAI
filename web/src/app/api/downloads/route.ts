@@ -1,71 +1,78 @@
 import { NextResponse } from "next/server";
-import {
-  APP_VERSION,
-  buildPlatforms,
-  fetchLatestRelease,
-  githubToken,
-  type GhAsset,
-} from "@/lib/github-releases";
+import { readFile } from "fs/promises";
+import path from "path";
 
-const GITHUB_REPO = process.env.GITHUB_REPO || "BloomyAI/BloomyAI";
+type ManifestPlatform = {
+  id: string;
+  name: string;
+  file: string;
+  hint: string;
+  kind: "installer" | "portable";
+};
+
+type Manifest = {
+  version: string;
+  platforms: ManifestPlatform[];
+};
+
+async function fileExists(publicPath: string): Promise<boolean> {
+  try {
+    await readFile(publicPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function GET() {
-  const hasToken = !!githubToken();
-
-  if (!hasToken) {
-    return NextResponse.json({
-      available: false,
-      version: APP_VERSION,
-      privateRepo: true,
-      releasePage: `https://github.com/${GITHUB_REPO}/releases`,
-      actionsPage: `https://github.com/${GITHUB_REPO}/actions/workflows/build-desktop.yml`,
-      platforms: [],
-      message:
-        "Private repo: add GITHUB_RELEASES_TOKEN to your server environment (Vercel) so the site can serve desktop installers.",
-    });
-  }
-
   try {
-    const res = await fetchLatestRelease();
+    const manifestPath = path.join(process.cwd(), "public", "downloads", "manifest.json");
+    const raw = await readFile(manifestPath, "utf-8");
+    const manifest: Manifest = JSON.parse(raw);
 
-    if (res.status === 404) {
-      return NextResponse.json({
-        available: false,
-        version: APP_VERSION,
-        privateRepo: true,
-        releasePage: `https://github.com/${GITHUB_REPO}/releases`,
-        actionsPage: `https://github.com/${GITHUB_REPO}/actions/workflows/build-desktop.yml`,
-        platforms: [],
-        message: "No desktop release yet. Run the Build Desktop Apps workflow on GitHub.",
-      });
-    }
+    const platforms = await Promise.all(
+      manifest.platforms.map(async (p) => {
+        const filePath = path.join(process.cwd(), "public", "downloads", p.file);
+        const exists = await fileExists(filePath);
+        const filePathFull = path.join(process.cwd(), "public", "downloads", p.file);
+        let size = "";
+        if (exists) {
+          const { stat } = await import("fs/promises");
+          const info = await stat(filePathFull);
+          size = `${(info.size / (1024 * 1024)).toFixed(0)} MB`;
+        }
+        return {
+          id: p.id,
+          name: p.name,
+          fileName: p.file,
+          url: exists ? `/downloads/${encodeURIComponent(p.file)}` : "",
+          size,
+          hint: p.hint,
+          kind: p.kind,
+          available: exists,
+        };
+      })
+    );
 
-    if (!res.ok) {
-      throw new Error(`GitHub API ${res.status}`);
-    }
-
-    const release = await res.json();
-    const assets: GhAsset[] = release.assets || [];
-    const platforms = buildPlatforms(assets);
+    const availablePlatforms = platforms.filter((p) => p.available);
 
     return NextResponse.json({
-      available: platforms.length > 0,
-      version: release.tag_name?.replace(/^desktop-v?/i, "") || APP_VERSION,
-      tag: release.tag_name,
-      privateRepo: true,
-      releasePage: release.html_url,
-      publishedAt: release.published_at,
-      platforms,
+      available: availablePlatforms.length > 0,
+      version: manifest.version,
+      platforms: availablePlatforms,
+      pending: platforms.filter((p) => !p.available).map((p) => p.fileName),
+      message:
+        availablePlatforms.length === 0
+          ? "Desktop installers are not uploaded yet. Place build files in web/public/downloads/ (see README.txt)."
+          : undefined,
     });
   } catch (error) {
-    console.error("Downloads API error:", error);
+    console.error("Downloads manifest error:", error);
     return NextResponse.json({
       available: false,
-      version: APP_VERSION,
-      privateRepo: true,
-      releasePage: `https://github.com/${GITHUB_REPO}/releases`,
+      version: "1.0.0",
       platforms: [],
-      message: "Could not load private release assets. Check GITHUB_RELEASES_TOKEN permissions.",
+      message: "Could not load download manifest.",
     });
   }
 }
